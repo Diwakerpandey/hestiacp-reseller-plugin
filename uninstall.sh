@@ -1,2 +1,5 @@
 #!/bin/bash
-exec "$(dirname "$0")/install.sh" --uninstall
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec bash "$SCRIPT_DIR/install.sh" --uninstall
