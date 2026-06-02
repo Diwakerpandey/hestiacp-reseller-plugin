@@ -1,0 +1,67 @@
+#!/bin/bash
+# info: list reseller accounts
+# options: [FORMAT]
+
+format=${1-shell}
+
+source /etc/hestiacp/hestia.conf
+source $HESTIA/func/main.sh
+source $HESTIA/func/reseller.sh
+source_conf "$HESTIA/conf/hestia.conf"
+
+resellers=()
+if [ -d "$RESELLER_DATA" ]; then
+	for d in "$RESELLER_DATA"/*; do
+		[ -d "$d" ] || continue
+		r=$(basename "$d")
+		[ -f "$(reseller_conf_path "$r")" ] && resellers+=("$r")
+	done
+fi
+
+if [ ${#resellers[@]} -eq 0 ]; then
+	case "$format" in
+		json) echo "{}" ;;
+		*) echo "No resellers found" ;;
+	esac
+	exit 0
+fi
+
+case "$format" in
+	json)
+		echo -n "{"
+		first=1
+		for r in "${resellers[@]}"; do
+			reseller_sync_counters "$r"
+			[ $first -eq 0 ] && echo -n ","
+			first=0
+			echo -n "\"$r\":{"
+			inner=1
+			while IFS= read -r line; do
+				key=$(echo "$line" | cut -f 1 -d =)
+				val=$(echo "$line" | cut -f 2- -d = | tr -d "'")
+				[ $inner -eq 0 ] && echo -n ","
+				inner=0
+				echo -n "\"$key\":\"$val\""
+			done < "$(reseller_conf_path "$r")"
+			echo -n "}"
+		done
+		echo "}"
+		;;
+	plain)
+		printf "%-12s %-16s %-8s %-12s %-12s\n" "USER" "PACKAGE" "USERS" "DISK" "BANDWIDTH"
+		for r in "${resellers[@]}"; do
+			reseller_sync_counters "$r"
+			# shellcheck disable=SC1090
+			source "$(reseller_conf_path "$r")"
+			printf "%-12s %-16s %-8s %-12s %-12s\n" "$r" "${RESELLER_PACKAGE:-}" "${R_USERS:-0}/${MAX_USERS:-?}" "${R_DISK:-0}" "${R_BANDWIDTH:-0}"
+		done
+		;;
+	*)
+		for r in "${resellers[@]}"; do
+			echo "=== $r ==="
+			cat "$(reseller_conf_path "$r")"
+			echo ""
+		done
+		;;
+esac
+exit 0

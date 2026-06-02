@@ -1,0 +1,44 @@
+#!/bin/bash
+# info: change hosting user's package (reseller-owned child only)
+# options: RESELLER USER PACKAGE
+
+reseller=$1
+user=$2
+package=$3
+
+source /etc/hestiacp/hestia.conf
+source $HESTIA/func/main.sh
+source $HESTIA/func/reseller.sh
+source_conf "$HESTIA/conf/hestia.conf"
+
+check_args '3' "$#" 'RESELLER USER PACKAGE'
+is_format_valid 'user' 'package'
+
+is_reseller_account "$reseller" || {
+	echo "Error: $reseller is not a reseller"
+	exit "$E_NOTEXIST"
+}
+
+reseller_owns_child_user "$reseller" "$user" || {
+	echo "Error: user $user is not owned by reseller $reseller"
+	exit "$E_NOTEXIST"
+}
+
+global_pkg=$(reseller_resolve_package_for_user "$reseller" "$package")
+if [ -z "$global_pkg" ]; then
+	echo "Error: package '$package' is not available for this reseller"
+	exit "$E_INVALID"
+fi
+
+current=$(grep -m1 "^PACKAGE=" "$HESTIA/data/users/$user/user.conf" 2>/dev/null | cut -f 2 -d \')
+if [ "$current" = "$global_pkg" ]; then
+	exit 0
+fi
+
+$BIN/v-change-user-package "$user" "$global_pkg"
+rc=$?
+[ $rc -eq 0 ] || exit $rc
+
+$BIN/v-log-action "$reseller" "Info" "Reseller" "Hosting user package changed (User: $user, Package: $package, Global: $global_pkg)."
+log_event "$OK" "$ARGUMENTS"
+exit 0

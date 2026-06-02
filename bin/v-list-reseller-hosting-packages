@@ -1,0 +1,70 @@
+#!/bin/bash
+# info: list hosting packages created by a reseller
+# options: RESELLER [FORMAT]
+
+reseller=$1
+format=${2-json}
+
+source /etc/hestiacp/hestia.conf
+source $HESTIA/func/main.sh
+source $HESTIA/func/reseller.sh
+source_conf "$HESTIA/conf/hestia.conf"
+
+check_args '1' "$#" 'RESELLER [FORMAT]'
+is_format_valid 'user'
+
+is_reseller_account "$reseller" || {
+	echo "Error: $reseller is not a reseller"
+	exit "$E_NOTEXIST"
+}
+
+dir=$(reseller_hosting_pkg_dir "$reseller")
+mkdir -p "$dir"
+
+pkgs=()
+for meta in "$dir"/*.meta; do
+	[ -f "$meta" ] || continue
+	pkgs+=("$(basename "$meta" .meta)")
+done
+
+case "$format" in
+	json)
+		if [ ${#pkgs[@]} -eq 0 ]; then
+			echo "{}"
+			exit 0
+		fi
+		echo -n "{"
+		first=1
+		for p in "${pkgs[@]}"; do
+			[ $first -eq 0 ] && echo -n ","
+			first=0
+			echo -n "\"$p\":{"
+			inner=1
+			while IFS= read -r line; do
+				key=$(echo "$line" | cut -f 1 -d =)
+				val=$(echo "$line" | cut -f 2- -d = | tr -d "'")
+				[ $inner -eq 0 ] && echo -n ","
+				inner=0
+				echo -n "\"$key\":\"$val\""
+			done < "$(reseller_hosting_pkg_meta "$reseller" "$p")"
+			echo -n "}"
+		done
+		echo "}"
+		;;
+	plain)
+		printf "%-16s %-24s %-8s %-10s %-10s\n" "PACKAGE" "GLOBAL" "WEB" "DISK" "BW"
+		for p in "${pkgs[@]}"; do
+			# shellcheck disable=SC1090
+			source "$(reseller_hosting_pkg_meta "$reseller" "$p")"
+			printf "%-16s %-24s %-8s %-10s %-10s\n" "$p" "${GLOBAL_NAME:-}" "${WEB_DOMAINS:-}" "${DISK_QUOTA:-}" "${BANDWIDTH:-}"
+		done
+		;;
+	*)
+		for p in "${pkgs[@]}"; do
+			echo "=== $p ==="
+			cat "$(reseller_hosting_pkg_meta "$reseller" "$p")"
+			echo ""
+		done
+		;;
+esac
+exit 0

@@ -1,0 +1,43 @@
+#!/bin/bash
+# info: delete reseller-owned hosting package
+# options: RESELLER PACKAGE
+
+reseller=$1
+package=$2
+
+source /etc/hestiacp/hestia.conf
+source $HESTIA/func/main.sh
+source $HESTIA/func/reseller.sh
+source_conf "$HESTIA/conf/hestia.conf"
+
+check_args '2' "$#" 'RESELLER PACKAGE'
+is_format_valid 'user' 'package'
+check_hestia_demo_mode
+
+is_reseller_account "$reseller" || exit "$E_NOTEXIST"
+package=$(reseller_sanitize_pkg_name "$package")
+
+reseller_owns_hosting_package "$reseller" "$package" || {
+	echo "Error: package $package not found for reseller"
+	exit "$E_NOTEXIST"
+}
+
+global_name=$(grep -m1 "^GLOBAL_NAME=" "$(reseller_hosting_pkg_meta "$reseller" "$package")" | cut -f 2 -d \')
+
+while read -r child; do
+	[ -z "$child" ] && continue
+	cpkg=$(grep -m1 "^PACKAGE=" "$HESTIA/data/users/$child/user.conf" 2>/dev/null | cut -f 2 -d \')
+	if [ "$cpkg" = "$global_name" ]; then
+		echo "Error: package in use by user $child"
+		exit "$E_INUSE"
+	fi
+done < <(reseller_list_children "$reseller")
+
+if [ -n "$global_name" ] && [ -f "$HESTIA/data/packages/${global_name}.pkg" ]; then
+	$BIN/v-delete-user-package "$global_name" 2>/dev/null || rm -f "$HESTIA/data/packages/${global_name}.pkg"
+fi
+
+rm -f "$(reseller_hosting_pkg_meta "$reseller" "$package")"
+$BIN/v-log-action "$reseller" "Info" "Reseller" "Hosting package deleted (Name: $package)."
+log_event "$OK" "$ARGUMENTS"
+exit 0

@@ -1,0 +1,20 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/
+
+# Secrets (never commit)
+*.env
+.env.*
+/tmp/
+**/pw.txt
+**/*password*
+
+# Local install mirror on server (created by install.sh, not source)
+# (nothing here — reseller-hosting/ lives outside this repo)
+
+# Accidental backups from patches on a dev machine
+*.bak-reseller-*

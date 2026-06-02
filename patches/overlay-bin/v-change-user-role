@@ -1,0 +1,59 @@
+#!/bin/bash
+# info: updates user role
+# options: USER ROLE
+#
+# example: v-change-user-role user administrator
+#
+# Give/revoke user administrator rights to manage all accounts as admin
+# HestiaCP Reseller plugin: hardened against privilege escalation (HESTIA_RESELLER_ROLE_GUARD)
+
+#----------------------------------------------------------#
+#                Variables & Functions                     #
+#----------------------------------------------------------#
+
+# Argument definition
+user=$1
+role=$2
+
+# Includes
+# shellcheck source=/etc/hestiacp/hestia.conf
+source /etc/hestiacp/hestia.conf
+# shellcheck source=/usr/local/hestia/func/main.sh
+source $HESTIA/func/main.sh
+# load config file
+source_conf "$HESTIA/conf/hestia.conf"
+
+if [ -f "$HESTIA/func/reseller_security.sh" ]; then
+	# shellcheck source=/usr/local/hestia/func/reseller_security.sh
+	source "$HESTIA/func/reseller_security.sh"
+fi
+
+#----------------------------------------------------------#
+#                    Verifications                         #
+#----------------------------------------------------------#
+
+ROLE=$(get_user_value '$ROLE')
+
+is_format_valid 'user' 'role'
+is_object_valid 'user' 'USER' "$user"
+is_object_unsuspended 'user' 'USER' "$user"
+
+# Perform verification if read-only mode is enabled
+check_hestia_demo_mode
+
+if type reseller_security_check_role_change >/dev/null 2>&1; then
+	reseller_security_check_role_change "$user" "$role" || exit "$?"
+fi
+
+#----------------------------------------------------------#
+#                       Action                             #
+#----------------------------------------------------------#
+
+$BIN/v-log-action "system" "Warning" "Security" "User privileges changed (User: $user, Role: $role, Previous: $ROLE)."
+update_user_value "$user" '$ROLE' "$role"
+
+#----------------------------------------------------------#
+#                       Hestia                             #
+#----------------------------------------------------------#
+
+exit

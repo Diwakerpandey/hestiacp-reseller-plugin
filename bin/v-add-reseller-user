@@ -1,0 +1,53 @@
+#!/bin/bash
+# info: reseller creates a hosting user under their account
+# options: RESELLER USER PASSWORD EMAIL PACKAGE [NAME]
+
+reseller=$1
+user=$2
+password=$3
+HIDE=2
+email=$4
+package=$5
+name=${6:-$user}
+
+source /etc/hestiacp/hestia.conf
+source $HESTIA/func/main.sh
+source $HESTIA/func/reseller.sh
+source_conf "$HESTIA/conf/hestia.conf"
+
+check_args '5' "$#" 'RESELLER USER PASSWORD EMAIL PACKAGE [NAME]'
+is_format_valid 'user' 'email' 'package'
+is_password_valid
+check_hestia_demo_mode
+
+is_reseller_account "$reseller" || {
+	echo "Error: $reseller is not a reseller"
+	exit "$E_NOTEXIST"
+}
+
+is_object_valid 'user' 'USER' "$reseller" 2>/dev/null || true
+
+reseller_check_can_add_user "$reseller" "$package" || exit $?
+
+global_pkg=$(reseller_resolve_package_for_user "$reseller" "$package")
+if [ -z "$global_pkg" ] || [ ! -f "$HESTIA/data/packages/${global_pkg}.pkg" ]; then
+	echo "Error: package '$package' is not available for this reseller"
+	exit "$E_INVALID"
+fi
+
+[ -d "$HESTIA/data/users/$user" ] && {
+	echo "Error: user $user already exists"
+	exit "$E_EXISTS"
+}
+
+$BIN/v-add-user "$user" "$password" "$email" "$global_pkg" "$name"
+rc=$?
+[ $rc -eq 0 ] || exit $rc
+
+reseller_link_child "$reseller" "$user"
+reseller_sync_counters "$reseller"
+
+$BIN/v-log-action "$reseller" "Info" "Reseller" "Hosting user added (Name: $user, Package: $package)."
+$BIN/v-log-action "system" "Info" "Reseller" "Reseller $reseller created user $user."
+log_event "$OK" "$ARGUMENTS"
+exit 0

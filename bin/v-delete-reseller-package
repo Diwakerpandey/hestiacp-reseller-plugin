@@ -1,0 +1,30 @@
+#!/bin/bash
+# info: delete reseller package
+# options: PACKAGE
+
+package=$1
+
+source /etc/hestiacp/hestia.conf
+source $HESTIA/func/main.sh
+source $HESTIA/func/reseller.sh
+source_conf "$HESTIA/conf/hestia.conf"
+
+check_args '1' "$#" 'PACKAGE'
+is_format_valid 'package'
+check_hestia_demo_mode
+
+pkg_file="${RESELLER_PKG_DIR}/${package}.pkg"
+[ -f "$pkg_file" ] || { echo "Error: package $package not found"; exit "$E_NOTEXIST"; }
+
+for conf in "$RESELLER_DATA"/*/reseller.conf; do
+	[ -f "$conf" ] || continue
+	if grep -q "RESELLER_PACKAGE='$package'" "$conf" 2>/dev/null; then
+		echo "Error: package is in use by a reseller"
+		exit "$E_INUSE"
+	fi
+done
+
+rm -f "$pkg_file"
+$BIN/v-log-action "system" "Info" "Reseller" "Reseller package deleted (Name: $package)."
+log_event "$OK" "$ARGUMENTS"
+exit 0

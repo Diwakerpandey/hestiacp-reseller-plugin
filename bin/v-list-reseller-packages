@@ -1,0 +1,62 @@
+#!/bin/bash
+# info: list reseller packages
+# options: [FORMAT]
+
+format=${1-shell}
+
+source /etc/hestiacp/hestia.conf
+source $HESTIA/func/main.sh
+source $HESTIA/func/reseller.sh
+source_conf "$HESTIA/conf/hestia.conf"
+
+mkdir -p "$RESELLER_PKG_DIR"
+
+if [ ! "$(ls -A "$RESELLER_PKG_DIR" 2>/dev/null)" ]; then
+	case "$format" in
+		json) echo "{}" ;;
+		*) echo "No reseller packages found" ;;
+	esac
+	exit 0
+fi
+
+case "$format" in
+	json)
+		echo -n "{"
+		first=1
+		for f in "$RESELLER_PKG_DIR"/*.pkg; do
+			[ -f "$f" ] || continue
+			pkg=$(basename "$f" .pkg)
+			[ $first -eq 0 ] && echo -n ","
+			first=0
+			echo -n "\"$pkg\":{"
+			inner=1
+			while IFS= read -r line; do
+				key=$(echo "$line" | cut -f 1 -d =)
+				val=$(echo "$line" | cut -f 2- -d = | tr -d "'")
+				[ $inner -eq 0 ] && echo -n ","
+				inner=0
+				echo -n "\"$key\":\"$val\""
+			done < <(grep -v '^[[:space:]]*$' "$f")
+			echo -n "}"
+		done
+		echo "}"
+		;;
+	plain)
+		for f in "$RESELLER_PKG_DIR"/*.pkg; do
+			[ -f "$f" ] || continue
+			pkg=$(basename "$f" .pkg)
+			max_u=$(grep MAX_USERS "$f" | cut -f 2 -d \')
+			max_d=$(grep MAX_DISK "$f" | cut -f 2 -d \')
+			echo "$pkg $max_u $max_d"
+		done
+		;;
+	*)
+		for f in "$RESELLER_PKG_DIR"/*.pkg; do
+			[ -f "$f" ] || continue
+			echo "=== $(basename "$f" .pkg) ==="
+			cat "$f"
+			echo ""
+		done
+		;;
+esac
+exit 0

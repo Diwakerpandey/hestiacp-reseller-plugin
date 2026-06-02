@@ -1,0 +1,36 @@
+#!/bin/bash
+# info: delete a hosting user owned by a reseller
+# options: RESELLER USER [FORCE]
+
+reseller=$1
+user=$2
+force=${3-no}
+
+source /etc/hestiacp/hestia.conf
+source $HESTIA/func/main.sh
+source $HESTIA/func/reseller.sh
+source_conf "$HESTIA/conf/hestia.conf"
+
+check_args '2' "$#" 'RESELLER USER [FORCE]'
+is_format_valid 'user'
+check_hestia_demo_mode
+
+is_reseller_account "$reseller" || {
+	echo "Error: $reseller is not a reseller"
+	exit "$E_NOTEXIST"
+}
+
+if ! reseller_owns_child_user "$reseller" "$user"; then
+	echo "Error: user $user is not owned by reseller $reseller"
+	exit "$E_INVALID"
+fi
+
+[ "$user" = "$ROOT_USER" ] && exit "$E_INVALID"
+
+reseller_unlink_child "$reseller" "$user"
+$BIN/v-delete-user "$user"
+reseller_sync_counters "$reseller"
+
+$BIN/v-log-action "$reseller" "Info" "Reseller" "Hosting user deleted (Name: $user)."
+log_event "$OK" "$ARGUMENTS"
+exit 0

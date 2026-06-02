@@ -1,0 +1,58 @@
+#!/bin/bash
+# info: add reseller hosting package (plan for resellers to sell)
+# options: tmpfile PACKAGE [REWRITE]
+
+tmpfile=$1
+package=$2
+rewrite=$3
+
+source /etc/hestiacp/hestia.conf
+source $HESTIA/func/main.sh
+source $HESTIA/func/reseller.sh
+source_conf "$HESTIA/conf/hestia.conf"
+
+check_args '2' "$#" 'PKG_FILE PACKAGE [REWRITE]'
+is_format_valid 'package'
+check_hestia_demo_mode
+
+[ -f "$tmpfile" ] || { echo "$tmpfile does not exist"; exit "$E_NOTEXIST"; }
+
+# shellcheck disable=SC1090
+source "$tmpfile"
+
+if [ "$MAX_USERS" != 'unlimited' ]; then
+	is_int_format_valid "$MAX_USERS" 'MAX_USERS'
+fi
+if [ "$MAX_DISK" != 'unlimited' ]; then
+	is_int_format_valid "$MAX_DISK" 'MAX_DISK'
+fi
+if [ "$MAX_BANDWIDTH" != 'unlimited' ]; then
+	is_int_format_valid "$MAX_BANDWIDTH" 'MAX_BANDWIDTH'
+fi
+
+mkdir -p "$RESELLER_PKG_DIR"
+
+if [ "$rewrite" != 'yes' ]; then
+	[ -f "${RESELLER_PKG_DIR}/${package}.pkg" ] && {
+		echo "Error: reseller package $package already exists"
+		exit "$E_EXISTS"
+	}
+fi
+
+time_n_date=$(date +'%T %F')
+time=$(echo "$time_n_date" | cut -f 1 -d \ )
+date=$(echo "$time_n_date" | cut -f 2 -d \ )
+
+cat > "${RESELLER_PKG_DIR}/${package}.pkg" <<EOF
+MAX_USERS='${MAX_USERS:-10}'
+MAX_DISK='${MAX_DISK:-unlimited}'
+MAX_BANDWIDTH='${MAX_BANDWIDTH:-unlimited}'
+ALLOWED_PACKAGES='${ALLOWED_PACKAGES:-default}'
+TIME='$time'
+DATE='$date'
+EOF
+
+chmod 644 "${RESELLER_PKG_DIR}/${package}.pkg"
+$BIN/v-log-action "system" "Info" "Reseller" "Reseller package added (Name: $package)."
+log_event "$OK" "$ARGUMENTS"
+exit 0

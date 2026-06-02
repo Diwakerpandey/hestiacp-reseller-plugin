@@ -1,0 +1,73 @@
+#!/bin/bash
+# info: list hosting users owned by a reseller
+# options: RESELLER [FORMAT]
+
+reseller=$1
+format=${2-shell}
+
+source /etc/hestiacp/hestia.conf
+source $HESTIA/func/main.sh
+source $HESTIA/func/reseller.sh
+source_conf "$HESTIA/conf/hestia.conf"
+
+check_args '1' "$#" 'RESELLER [FORMAT]'
+is_format_valid 'user'
+
+is_reseller_account "$reseller" || {
+	echo "Error: $reseller is not a reseller"
+	exit "$E_NOTEXIST"
+}
+
+reseller_sync_counters "$reseller"
+children=()
+while read -r c; do
+	[ -n "$c" ] && children+=("$c")
+done < <(reseller_list_children "$reseller")
+
+if [ ${#children[@]} -eq 0 ]; then
+	case "$format" in
+		json) echo "{}" ;;
+		*) echo "No users under reseller $reseller" ;;
+	esac
+	exit 0
+fi
+
+case "$format" in
+	json)
+		echo -n "{"
+		first=1
+		for u in "${children[@]}"; do
+			[ -d "$HESTIA/data/users/$u" ] || continue
+			[ $first -eq 0 ] && echo -n ","
+			first=0
+			echo -n "\"$u\":{"
+			inner=1
+			for key in PACKAGE CONTACT U_DISK U_BANDWIDTH U_WEB_DOMAINS SUSPENDED; do
+				val=$(grep -m1 "^${key}=" "$HESTIA/data/users/$u/user.conf" 2>/dev/null | cut -f 2 -d \')
+				[ $inner -eq 0 ] && echo -n ","
+				inner=0
+				echo -n "\"$key\":\"${val:-}\""
+			done
+			echo -n "}"
+		done
+		echo "}"
+		;;
+	plain)
+		printf "%-12s %-12s %-10s %-10s %-8s\n" "USER" "PACKAGE" "DISK" "BW" "STATUS"
+		for u in "${children[@]}"; do
+			[ -d "$HESTIA/data/users/$u" ] || continue
+			pkg=$(grep PACKAGE "$HESTIA/data/users/$u/user.conf" | cut -f 2 -d \')
+			disk=$(grep U_DISK "$HESTIA/data/users/$u/user.conf" | cut -f 2 -d \')
+			bw=$(grep U_BANDWIDTH "$HESTIA/data/users/$u/user.conf" | cut -f 2 -d \')
+			sus=$(grep SUSPENDED "$HESTIA/data/users/$u/user.conf" | cut -f 2 -d \')
+			printf "%-12s %-12s %-10s %-10s %-8s\n" "$u" "$pkg" "$disk" "$bw" "$sus"
+		done
+		;;
+	*)
+		for u in "${children[@]}"; do
+			echo "=== $u ==="
+			$BIN/v-list-user "$u" plain 2>/dev/null || echo "(missing)"
+		done
+		;;
+esac
+exit 0

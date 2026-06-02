@@ -1,0 +1,127 @@
+#!/bin/bash
+# info: reseller creates a hosting package for their customers
+# options: RESELLER TMPFILE PACKAGE_NAME
+
+reseller=$1
+tmpfile=$2
+package=$3
+
+source /etc/hestiacp/hestia.conf
+source $HESTIA/func/main.sh
+source $HESTIA/func/reseller.sh
+source_conf "$HESTIA/conf/hestia.conf"
+
+check_args '3' "$#" 'RESELLER TMPFILE PACKAGE'
+is_format_valid 'user' 'package'
+check_hestia_demo_mode
+
+is_reseller_account "$reseller" || {
+	echo "Error: $reseller is not a reseller"
+	exit "$E_NOTEXIST"
+}
+
+[ -f "$tmpfile" ] || {
+	echo "Error: $tmpfile not found"
+	exit "$E_NOTEXIST"
+}
+
+package=$(reseller_sanitize_pkg_name "$package")
+[ -n "$package" ] || {
+	echo "Error: invalid package name"
+	exit "$E_INVALID"
+}
+
+if reseller_owns_hosting_package "$reseller" "$package"; then
+	echo "Error: package $package already exists"
+	exit "$E_EXISTS"
+fi
+
+global_name=$(reseller_global_pkg_name "$reseller" "$package")
+if [ -f "$HESTIA/data/packages/${global_name}.pkg" ]; then
+	echo "Error: system package $global_name already exists"
+	exit "$E_EXISTS"
+fi
+
+mkdir -p "$(reseller_hosting_pkg_dir "$reseller")"
+
+# Defaults from system default package when fields omitted
+base="$HESTIA/data/packages/default.pkg"
+if [ ! -f "$base" ]; then
+	base="$HESTIA/data/packages/reseller-system.pkg"
+fi
+if [ -f "$base" ]; then
+	# shellcheck disable=SC1090
+	source "$base"
+fi
+# shellcheck disable=SC1090
+source "$tmpfile"
+
+# Reseller-created customer packages always use nologin (no SSH shell choice).
+SHELL="nologin"
+
+WEB_TEMPLATE="${WEB_TEMPLATE:-default}"
+PROXY_TEMPLATE="${PROXY_TEMPLATE:-default}"
+BACKEND_TEMPLATE="${BACKEND_TEMPLATE:-default}"
+DNS_TEMPLATE="${DNS_TEMPLATE:-default}"
+WEB_DOMAINS="${WEB_DOMAINS:-1}"
+WEB_ALIASES="${WEB_ALIASES:-unlimited}"
+DNS_DOMAINS="${DNS_DOMAINS:-1}"
+DNS_RECORDS="${DNS_RECORDS:-unlimited}"
+MAIL_DOMAINS="${MAIL_DOMAINS:-1}"
+MAIL_ACCOUNTS="${MAIL_ACCOUNTS:-10}"
+RATE_LIMIT="${RATE_LIMIT:-200}"
+DATABASES="${DATABASES:-1}"
+CRON_JOBS="${CRON_JOBS:-unlimited}"
+DISK_QUOTA="${DISK_QUOTA:-1024}"
+BANDWIDTH="${BANDWIDTH:-10240}"
+NS="${NS:-}"
+BACKUPS="${BACKUPS:-1}"
+BACKUPS_INCREMENTAL="${BACKUPS_INCREMENTAL:-no}"
+
+pkg_body=$(mktemp)
+cat > "$pkg_body" <<EOF
+WEB_TEMPLATE='$WEB_TEMPLATE'
+PROXY_TEMPLATE='$PROXY_TEMPLATE'
+BACKEND_TEMPLATE='$BACKEND_TEMPLATE'
+DNS_TEMPLATE='$DNS_TEMPLATE'
+WEB_DOMAINS='$WEB_DOMAINS'
+WEB_ALIASES='$WEB_ALIASES'
+DNS_DOMAINS='$DNS_DOMAINS'
+DNS_RECORDS='$DNS_RECORDS'
+MAIL_DOMAINS='$MAIL_DOMAINS'
+MAIL_ACCOUNTS='$MAIL_ACCOUNTS'
+RATE_LIMIT='$RATE_LIMIT'
+DATABASES='$DATABASES'
+CRON_JOBS='$CRON_JOBS'
+DISK_QUOTA='$DISK_QUOTA'
+CPU_QUOTA='unlimited'
+CPU_QUOTA_PERIOD='unlimited'
+MEMORY_LIMIT='unlimited'
+SWAP_LIMIT='unlimited'
+BANDWIDTH='$BANDWIDTH'
+NS='$NS'
+SHELL='$SHELL'
+BACKUPS='$BACKUPS'
+BACKUPS_INCREMENTAL='$BACKUPS_INCREMENTAL'
+EOF
+
+$BIN/v-add-user-package "$pkg_body" "$global_name"
+rc=$?
+rm -f "$pkg_body"
+[ $rc -eq 0 ] || exit $rc
+
+cat > "$(reseller_hosting_pkg_meta "$reseller" "$package")" <<EOF
+DISPLAY_NAME='$package'
+GLOBAL_NAME='$global_name'
+RESELLER='$reseller'
+WEB_DOMAINS='$WEB_DOMAINS'
+DISK_QUOTA='$DISK_QUOTA'
+BANDWIDTH='$BANDWIDTH'
+DATABASES='$DATABASES'
+MAIL_DOMAINS='$MAIL_DOMAINS'
+EOF
+chmod 640 "$(reseller_hosting_pkg_meta "$reseller" "$package")"
+
+$BIN/v-log-action "$reseller" "Info" "Reseller" "Hosting package added (Name: $package, Global: $global_name)."
+log_event "$OK" "$ARGUMENTS"
+exit 0

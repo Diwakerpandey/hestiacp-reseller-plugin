@@ -1,0 +1,40 @@
+#!/bin/bash
+# info: reseller usage vs limits
+# options: RESELLER [FORMAT]
+
+reseller=$1
+format=${2-json}
+
+source /etc/hestiacp/hestia.conf
+source $HESTIA/func/main.sh
+source $HESTIA/func/reseller.sh
+source_conf "$HESTIA/conf/hestia.conf"
+
+check_args '1' "$#" 'RESELLER [FORMAT]'
+is_format_valid 'user'
+
+is_reseller_account "$reseller" || {
+	echo "Error: $reseller is not a reseller"
+	exit "$E_NOTEXIST"
+}
+
+reseller_sync_counters "$reseller"
+# shellcheck disable=SC1090
+source "$(reseller_conf_path "$reseller")"
+
+case "$format" in
+	json)
+		printf '{"RESELLER":"%s","RESELLER_PACKAGE":"%s","R_USERS":"%s","MAX_USERS":"%s","R_DISK":"%s","MAX_DISK":"%s","R_BANDWIDTH":"%s","MAX_BANDWIDTH":"%s","ALLOWED_PACKAGES":"%s"}\n' \
+			"$reseller" "${RESELLER_PACKAGE:-}" "${R_USERS:-0}" "${MAX_USERS:-unlimited}" \
+			"${R_DISK:-0}" "${MAX_DISK:-unlimited}" "${R_BANDWIDTH:-0}" "${MAX_BANDWIDTH:-unlimited}" "${ALLOWED_PACKAGES:-}"
+		;;
+	*)
+		echo "Reseller: $reseller"
+		echo "Package: ${RESELLER_PACKAGE:-}"
+		echo "Users: ${R_USERS:-0} / ${MAX_USERS:-unlimited}"
+		echo "Disk (MB): ${R_DISK:-0} / ${MAX_DISK:-unlimited}"
+		echo "Bandwidth (MB): ${R_BANDWIDTH:-0} / ${MAX_BANDWIDTH:-unlimited}"
+		echo "Allowed hosting packages: ${ALLOWED_PACKAGES:-all}"
+		;;
+esac
+exit 0
