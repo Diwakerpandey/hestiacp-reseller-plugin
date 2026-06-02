@@ -38,6 +38,8 @@ flowchart TB
 
 **See [INSTALL.md](INSTALL.md)** for full install steps, patch list, verification commands, post-upgrade checklist, and troubleshooting.
 
+Installation is very easy with the included guide. If you want our team to install it for you, we offer installation support for a **$10 fee**.
+
 ### Quick install
 
 On the Hestia server:
@@ -63,6 +65,17 @@ After install, plugin files are also stored at:
 `/usr/local/hestia/plugins/reseller-hosting/`
 
 Full steps, verification, and troubleshooting: **[INSTALL.md](INSTALL.md)**.
+
+## Screenshots
+
+![Screenshot 1](screenshots/ssd1.png)
+![Screenshot 2](screenshots/ssd2.png)
+![Screenshot 3](screenshots/sssd3.png)
+![Screenshot 4](screenshots/ssd4.png)
+![Screenshot 5](screenshots/ssd5.png)
+![Screenshot 6](screenshots/ssd6.png)
+![Screenshot 7](screenshots/ssd7.png)
+![Screenshot 8](screenshots/ssd8.png)
 
 ## Workflow (sell reseller hosting)
 

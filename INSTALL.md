@@ -5,6 +5,8 @@ This guide is for public users installing the plugin on a HestiaCP server.
 Plugin version: see `VERSION`
 Repository: [github.com/Diwakerpandey/hestiacp-reseller-plugin](https://github.com/Diwakerpandey/hestiacp-reseller-plugin)
 
+Installation is very easy with this guide. If you want our team to install it for you, we offer installation support for a **$10 fee**.
+
 ## Requirements
 
 - HestiaCP installed at `/usr/local/hestia`
