@@ -18,3 +18,7 @@ Thumbs.db
 
 # Accidental backups from patches on a dev machine
 *.bak-reseller-*
+
+# Internal-only docs (never publish)
+INTERNAL_*.md
+docs/internal/

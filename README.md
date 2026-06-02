@@ -17,7 +17,7 @@ Adds **reseller hosting** to HestiaCP (similar to DirectAdmin / cPanel reseller 
 | Child ownership | `RESELLER_OWNER='reseller'` in child's `user.conf` |
 | Reseller panel account | Normal Hestia user with package `reseller-system` + `ROLE='reseller'` |
 
-**Full data layout** (reseller account, hosting customers, packages, inspection commands): see **[INSTALL.md — Where data is stored](INSTALL.md#where-data-is-stored)**.
+Internal data layout docs are maintained separately for maintainers.
 
 ```mermaid
 flowchart TB
@@ -232,4 +232,4 @@ After **Manage**, use the top bar **Log out (username)** to return to the resell
 
 ## Version
 
-See `VERSION` (e.g. 1.3.7). Install/patch procedure: **[INSTALL.md](INSTALL.md)**.
+See `VERSION` (e.g. 1.3.9). Install/patch procedure: **[INSTALL.md](INSTALL.md)**.
