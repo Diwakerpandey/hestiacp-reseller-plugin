@@ -19,7 +19,7 @@ def patch_login(text: str) -> str | None:
         r"\})\s*"
         r"(// Obtain account properties)",
         r"\1\n\n\t\t/* " + MARKER + " — reseller panel home */\n"
-        r"\t\tif (($_SESSION[\"userContext\"] ?? \"\") === \"reseller\" && ($_SESSION[\"look\"] ?? \"\") === \"\") {\n"
+        r"\t\tif (($_SESSION['userContext'] ?? '') === 'reseller' && ($_SESSION['look'] ?? '') === '') {\n"
         r"\t\t\theader(\"Location: /list/reseller-dashboard/\");\n"
         r"\t\t\texit();\n"
         r"\t\t}\n\n\t\t\2",
@@ -37,7 +37,7 @@ def patch_login(text: str) -> str | None:
         r"\} else \{\s*)"
         r"(if \(\$data\[\$user\]\[\"WEB_DOMAINS\"\] != \"0\"\))",
         r"\1/* " + MARKER + " */\n"
-        r"\t\t\t\t\t\tif (($_SESSION[\"userContext\"] ?? \"\") === \"reseller\") {\n"
+        r"\t\t\t\t\t\tif (($_SESSION['userContext'] ?? '') === 'reseller') {\n"
         r"\t\t\t\t\t\t\theader(\"Location: /list/reseller-dashboard/\");\n"
         r"\t\t\t\t\t\t\texit();\n"
         r"\t\t\t\t\t\t}\n"
