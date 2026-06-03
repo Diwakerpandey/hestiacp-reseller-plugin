@@ -8,6 +8,13 @@ from pathlib import Path
 MARKER = "HESTIA_RESELLER_LOGIN_REDIRECT"
 
 
+def repair_legacy_escaped_quotes(text: str) -> str:
+    """Fix broken output from older patch versions (literal backslash-quotes in PHP)."""
+    if '\\"' not in text:
+        return text
+    return text.replace('\\"', '"')
+
+
 def patch_login(text: str) -> str | None:
     if MARKER in text:
         return text
@@ -104,13 +111,20 @@ def main() -> int:
     login = web / "login/index.php"
     if login.is_file():
         text = login.read_text(encoding="utf-8")
-        updated = patch_login(text)
-        if updated is None and MARKER not in text:
+        repaired = repair_legacy_escaped_quotes(text)
+        updated = patch_login(repaired)
+        if updated is None and MARKER not in repaired:
             print(f"login: pattern not found ({login})")
             rc = 1
         elif updated and updated != text:
             login.write_text(updated, encoding="utf-8")
-            print(f"Patched: {login}")
+            if repaired != text:
+                print(f"Repaired legacy escaped quotes: {login}")
+            else:
+                print(f"Patched: {login}")
+        elif repaired != text:
+            login.write_text(repaired, encoding="utf-8")
+            print(f"Repaired legacy escaped quotes: {login}")
 
     for path, fn in [(web / "index.php", patch_index), (web / "inc/main.php", patch_main_home)]:
         if not path.is_file():

@@ -70,6 +70,72 @@ grep HESTIA_RESELLER_LOCKDOWN /usr/local/hestia/web/inc/main.php
 grep HESTIA_RESELLER_LOGIN_REDIRECT /usr/local/hestia/web/login/index.php
 ```
 
+## Troubleshooting
+
+### Internal Server Error on login page
+
+If Hestia shows **Internal Server Error** at `/login/` after install, check PHP syntax first:
+
+```bash
+php -l /usr/local/hestia/web/login/index.php
+php -l /usr/local/hestia/web/inc/main.php
+tail -n 50 /var/log/hestia/nginx-error.log
+tail -n 50 /var/log/hestia/nginx-error.log.1
+```
+
+Common log message:
+
+```text
+PHP Parse error: syntax error, unexpected token "\" in /usr/local/hestia/web/login/index.php on line 153
+```
+
+This means invalid escaped quotes were injected into `login/index.php` (for example `$_SESSION[\"userContext\"]`).
+
+**Fix (recommended):** pull latest plugin code and re-run installer (newer versions auto-repair this):
+
+```bash
+cd /usr/local/hestia/plugins/hestiacp-reseller-plugin
+git pull origin main
+sudo bash install.sh
+php -l /usr/local/hestia/web/login/index.php
+sudo systemctl restart hestia
+```
+
+**Fix (manual, if needed):**
+
+```bash
+cp /usr/local/hestia/web/login/index.php /usr/local/hestia/web/login/index.php.bak-fix
+sed -i 's/\\"/"/g' /usr/local/hestia/web/login/index.php
+php -l /usr/local/hestia/web/login/index.php
+sudo systemctl restart hestia
+```
+
+**If still broken, restore backup and reinstall:**
+
+```bash
+ls -lt /usr/local/hestia/web/login/index.php.bak-reseller-* | head -1
+# copy the newest backup over login/index.php, then:
+cd /usr/local/hestia/plugins/hestiacp-reseller-plugin
+git pull origin main
+sudo bash install.sh
+```
+
+### Uninstall says "Permission denied" on install.sh
+
+Run uninstall through bash explicitly:
+
+```bash
+cd /usr/local/hestia/plugins/hestiacp-reseller-plugin
+sudo bash install.sh --uninstall
+```
+
+Or make scripts executable first:
+
+```bash
+chmod +x install.sh uninstall.sh
+sudo bash uninstall.sh
+```
+
 ## Uninstall
 
 ```bash
